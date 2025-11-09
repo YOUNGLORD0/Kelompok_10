@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="id" data-bs-theme="light">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Toyota Price Explorer — EDA Dashboard</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-light: #f5f6fa;
+            --bg-dark: #121212;
+            --card-light: #fff;
+            --card-dark: #1e1e1e;
+            --text-light: #1a1a1a;
+            --text-dark: #f0f0f0;
+            --muted-light: #6b7280;
+            --muted-dark: #9ca3af;
+            --accent: #3b82f6;
+            --border-dark: #2a2a2a;
+        }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-light);
+            transition: background .3s ease, color .3s ease;
+        }
+
+        [data-theme="dark"] body {
+            background: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        .navbar {
+            background: var(--card-light);
+            transition: background .3s;
+        }
+
+        [data-theme="dark"] .navbar {
+            background: var(--card-dark);
+        }
+
+        .card {
+            border: none;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+            transition: background .3s ease, color .3s ease, box-shadow .3s;
+            background: var(--card-light);
+            color: var(--text-light);
+        }
+
+        [data-theme="dark"] .card {
+            background: var(--card-dark);
+            color: var(--text-dark);
+            box-shadow: 0 0 0 1px var(--border-dark);
+        }
+
+        .small-muted {
+            font-size: .85rem;
+            color: var(--muted-light);
+        }
+
+        [data-theme="dark"] .small-muted {
+            color: var(--muted-dark);
+        }
+
+        .narrative {
+            border-radius: 10px;
+            padding: 10px;
+            min-height: 72px;
+            background: rgba(0, 0, 0, 0.02);
+            transition: background .3s ease;
+        }
+
+        [data-theme="dark"] .narrative {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .plot-card {
+            min-height: 360px;
+        }
+
+        .sidebar {
+            max-height: 78vh;
+            overflow: auto;
+        }
+
+        @media(min-width:1000px) {
+            .grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar shadow-sm px-3 py-2 mb-3 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="mb-0">Toyota Explorer</h4>
+            <span class="small-muted">Interaktif EDA Dashboard</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <input id="fileInput" type="file" accept="text/csv" class="form-control form-control-sm"
+                style="width:200px">
+            <button id="btnLoadDefault" class="btn btn-primary btn-sm">Load Default</button>
+            <button id="themeToggle" class="btn btn-outline-secondary btn-sm">🌞 Light</button>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-3">
+        <div class="row g-3">
+            <div class="col-lg-3">
+                <div class="card sidebar p-3">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Pilih Model</label>
+                        <select id="modelSelect" multiple class="form-select" style="height:160px"></select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Rentang Tahun</label>
+                        <div class="d-flex gap-2">
+                            <input id="yearMin" type="number" class="form-control" placeholder="min" value="1990">
+                            <input id="yearMax" type="number" class="form-control" placeholder="max" value="2025">
+                        </div>
+                        <div class="small-muted mt-1">Gunakan untuk membatasi periode.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Pilih Metrik Y</label>
+                        <select id="yMetric" class="form-select">
+                            <option value="price" selected>Price (£)</option>
+                            <option value="mpg">MPG</option>
+                            <option value="mileage">Mileage</option>
+                            <option value="tax">Tax</option>
+                            <option value="engineSize">Engine Size</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Fuel Type</label>
+                        <select id="fuelSelect" multiple class="form-select" style="height:100px"></select>
+                    </div>
+
+                    <div class="mb-3 d-grid">
+                        <button id="btnApply" class="btn btn-success">Terapkan Filter</button>
+                        <button id="btnReset" class="btn btn-outline-secondary mt-2">Reset</button>
+                    </div>
+
+                    <hr>
+                    <div>
+                        <h6 class="fw-semibold mb-1">Interaksi</h6>
+                        <ul class="small-muted mb-0">
+                            <li>Zoom / Pan: klik & drag</li>
+                            <li>Brushing: marquee select</li>
+                            <li>Hover: tampilkan detail</li>
+                            <li>Click: highlight data</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-9">
+                <div class="card p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="mb-0">Visualisasi Utama</h5>
+                            <div class="small-muted">Scatter, line trend, bar fuel, dan korelasi heatmap</div>
+                        </div>
+                        <div class="text-end small-muted">
+                            Data: <span id="countLabel">0</span> baris — Selected: <span id="selectedCount">0</span>
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="plot-card card p-2" id="scatterCard">
+                            <div id="scatter" style="width:100%;height:420px"></div>
+                            <div class="mt-2 narrative" id="scatterNarrative"></div>
+                        </div>
+
+                        <div class="plot-card card p-2" id="lineCard">
+                            <div id="line" style="width:100%;height:420px"></div>
+                            <div class="mt-2 narrative" id="lineNarrative"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2 mt-3">
+                        <div class="card p-2 plot-card" id="barCard">
+                            <div id="bar" style="width:100%;height:360px"></div>
+                            <div class="mt-2 narrative" id="barNarrative"></div>
+                        </div>
+
+                        <div class="card p-2 plot-card" id="heatCard">
+                            <div id="heatmap" style="width:100%;height:360px"></div>
+                            <div class="mt-2 narrative" id="heatNarrative"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-3 small-muted">💡 Tip: Filter model terlebih dahulu jika dataset besar.</div>
+    </div>
+
+</body>
+
+</html>
+
+
+
+<!-- Libraries -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+
+
+<script>
+    // ------------------ Utilities ------------------
+    const numericCols = ['price', 'mileage', 'year', 'tax', 'mpg', 'engineSize'];
+    function toNum(v) { if (v === undefined || v === null || v === '') return NaN; const c = ('' + v).replace(/[^0-9.\-]/g, ''); const n = Number(c); return isNaN(n) ? NaN : n; }
+
+    function linearRegressionXY(xs, ys) {
+        const n = xs.length; if (n === 0) return { slope: 0, intercept: 0 };
+        const mx = xs.reduce((a, b) => a + b, 0) / n; const my = ys.reduce((a, b) => a + b, 0) / n;
+        let num = 0, den = 0; for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += Math.pow(xs[i] - mx, 2); }
+        const slope = den === 0 ? 0 : num / den; const intercept = my - slope * mx; return { slope, intercept };
+    }
+
+    function formatCurrency(v) { if (isNaN(v)) return 'NA'; return '£' + (Math.round(v).toLocaleString()); }
+
+    // ------------------ Data & State ------------------
+    let raw = [];
+    let data = []; // processed
+    let selectedIds = new Set();
+
+    // ------------------ Parsing ------------------
+    function processRaw(rows) {
+        return rows.map((r, idx) => {
+            const obj = { ...r };
+            // ensure columns exist
+            for (const c of numericCols) obj[c] = toNum(obj[c]);
+            obj._id = idx;
+            // normalize some strings
+            obj.model = (obj.model || '').toString();
+            obj.fuelType = (obj.fuelType || '').toString();
+            return obj;
+        }).filter(r => r.model !== '');
+    }
+    const html = document.documentElement;
+    const themeBtn = document.getElementById("themeToggle");
+
+    themeBtn.addEventListener("click", () => {
+        const dark = html.getAttribute("data-theme") === "dark";
+        html.setAttribute("data-theme", dark ? "light" : "dark");
+        themeBtn.textContent = dark ? "🌞 Light" : "🌙 Dark";
+    });
+
+    // ------------------ Controls ------------------
+    function populateControls() {
+        const models = Array.from(new Set(data.map(d => d.model))).sort((a, b) => a.localeCompare(b));
+        const fuelTypes = Array.from(new Set(data.map(d => d.fuelType))).sort();
+        const modelSelect = document.getElementById('modelSelect'); modelSelect.innerHTML = '';
+        models.forEach(m => { modelSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`); });
+        const fuelSelect = document.getElementById('fuelSelect'); fuelSelect.innerHTML = ''; fuelTypes.forEach(f => fuelSelect.insertAdjacentHTML('beforeend', `<option value="${f}">${f}</option>`));
+        // set reasonable year bounds
+        const years = data.map(d => d.year).filter(y => !isNaN(y));
+        if (years.length) { const min = Math.min(...years); const max = Math.max(...years); document.getElementById('yearMin').value = min; document.getElementById('yearMax').value = max; }
+    }
+
+    // ------------------ Filtering ------------------
+    function getFilters() {
+        const selectedModels = Array.from(document.getElementById('modelSelect').selectedOptions).map(o => o.value);
+        const selectedFuels = Array.from(document.getElementById('fuelSelect').selectedOptions).map(o => o.value);
+        const yearMin = Number(document.getElementById('yearMin').value) || -9999;
+        const yearMax = Number(document.getElementById('yearMax').value) || 9999;
+        const yMetric = document.getElementById('yMetric').value;
+        return { selectedModels, selectedFuels, yearMin, yearMax, yMetric };
+    }
+
+    function applyFilter() {
+        const f = getFilters();
+        let subset = data.filter(d => d.year >= f.yearMin && d.year <= f.yearMax);
+        if (f.selectedModels.length) subset = subset.filter(d => f.selectedModels.includes(d.model));
+        if (f.selectedFuels.length) subset = subset.filter(d => f.selectedFuels.includes(d.fuelType));
+        return { subset, f };
+    }
+
+    // ------------------ Narrative helpers ------------------
+    function narrativeForScatter(subset, f) {
+        if (subset.length === 0) return 'Tidak ada data untuk filter ini.';
+        const avgPrice = subset.map(d => d.price).filter(v => !isNaN(v)).reduce((a, b) => a + b, 0) / subset.filter(d => !isNaN(d.price)).length;
+        const topModel = (() => { const counts = {}; subset.forEach(s => counts[s.model] = (counts[s.model] || 0) + 1); return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]; })();
+        // correlation sign between mileage and price
+        const both = subset.filter(d => !isNaN(d.mileage) && !isNaN(d.price));
+        let corrSign = 'tidak jelas';
+        if (both.length > 10) { const xs = both.map(d => d.mileage); const ys = both.map(d => d.price); const lr = linearRegressionXY(xs, ys); corrSign = lr.slope < 0 ? 'negatif (harga turun saat mileage naik)' : 'positif (harga naik seiring mileage)'; }
+        return `Rata-rata harga pada filter ini: <strong>${formatCurrency(avgPrice)}</strong>. Model yang paling sering muncul: <strong>${topModel}</strong>. Korelasi kasar mileage-vs-price tampak <strong>${corrSign}</strong>. Klik titik untuk menyorot dan gunakan select (kotak) untuk memilih sekelompok titik.`;
+    }
+
+    function narrativeForLine(subset, f) {
+        if (subset.length === 0) return 'Tidak ada data.';
+        const byModel = {};
+        subset.forEach(d => { if (isNaN(d.year) || isNaN(d.price)) return; byModel[d.model] = byModel[d.model] || {}; byModel[d.model][d.year] = byModel[d.model][d.year] || []; byModel[d.model][d.year].push(d.price); });
+        const models = Object.keys(byModel).slice(0, 4);
+        if (models.length === 0) return 'Tidak ada data numerik untuk line chart.';
+        // check trend for first model
+        const m0 = models[0]; const yrs = Object.keys(byModel[m0]).map(v => +v).sort((a, b) => a - b); const avgs = yrs.map(y => byModel[m0][y].reduce((a, b) => a + b, 0) / byModel[m0][y].length);
+        const lr = linearRegressionXY(yrs, avgs); const trend = lr.slope < 0 ? 'menurun' : 'menaik';
+        return `Depresiasi (contoh model <strong>${m0}</strong>): harga rata-rata per tahun terlihat <strong>${trend}</strong> (kemiringan ≈ ${lr.slope.toFixed(2)}). Tabel menampilkan hingga 4 model teratas.`;
+    }
+
+    function narrativeForBar(subset, f) {
+        if (subset.length === 0) return 'Tidak ada data.';
+        const byFuel = {};
+        subset.forEach(d => { if (isNaN(d.price)) return; byFuel[d.fuelType] = byFuel[d.fuelType] || []; byFuel[d.fuelType].push(d.price); });
+        const entries = Object.entries(byFuel).map(([k, v]) => ({ k, avg: v.reduce((a, b) => a + b, 0) / v.length })).sort((a, b) => b.avg - a.avg);
+        if (entries.length === 0) return 'Tidak ada data harga per fuel.';
+        const top = entries[0]; return `Jenis bahan bakar dengan harga rata-rata tertinggi: <strong>${top.k}</strong> (~${formatCurrency(top.avg)}).`;
+    }
+
+    function narrativeForHeat(mat) {
+        // find strongest correlation excluding diagonal
+        let strongest = { abs: 0, pair: null, val: 0 };
+        const cols = Object.keys(mat);
+        for (let i = 0; i < cols.length; i++) for (let j = i + 1; j < cols.length; j++) { const v = mat[cols[i]][cols[j]]; if (isNaN(v)) continue; if (Math.abs(v) > strongest.abs) strongest = { abs: Math.abs(v), pair: [cols[i], cols[j]], val: v }; }
+        if (!strongest.pair) return 'Korelasi tidak tersedia.';
+        return `Korelasi terkuat antara <strong>${strongest.pair[0]}</strong> dan <strong>${strongest.pair[1]}</strong> (r = ${strongest.val.toFixed(2)}).`;
+    }
+
+    // ------------------ Plots ------------------
+    function drawScatter(subset, f) {
+        const y = f.yMetric;
+        // group by model
+        const groups = {};
+        subset.forEach(d => { if (isNaN(d[y])) return; groups[d.model] = groups[d.model] || []; groups[d.model].push(d); });
+        const traces = Object.keys(groups).slice(0, 20).map(m => ({
+            x: groups[m].map(r => r.mileage), y: groups[m].map(r => r[y]), mode: 'markers', name: m,
+            text: groups[m].map(r => `Model: ${r.model}<br>Year: ${r.year}<br>Price: ${formatCurrency(r.price)}<br>Mileage: ${r.mileage}<br>Fuel: ${r.fuelType}`),
+            customdata: groups[m].map(r => r._id), marker: { size: 8, opacity: 0.8 }, hovertemplate: '%{text}<extra></extra>'
+        }));
+        const layout = { margin: { t: 20, r: 20, l: 50, b: 60 }, hovermode: 'closest', legend: { orientation: 'h' }, xaxis: { title: 'Mileage' }, yaxis: { title: y }, dragmode: 'select' };
+        Plotly.newPlot('scatter', traces, layout, { responsive: true });
+
+        // events
+        const scatterDiv = document.getElementById('scatter');
+        scatterDiv.on('plotly_selected', function (eventData) {
+            if (!eventData) { document.getElementById('selectedCount').innerText = 0; selectedIds.clear(); updateHighlights(); return; }
+            const ids = new Set(); eventData.points.forEach(p => ids.add(p.customdata)); selectedIds = ids; document.getElementById('selectedCount').innerText = ids.size; updateHighlights();
+        });
+        scatterDiv.on('plotly_click', function (ev) {
+            if (ev.points && ev.points.length) {
+                const id = ev.points[0].customdata; // toggle selection
+                if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); document.getElementById('selectedCount').innerText = selectedIds.size; updateHighlights(); showDetailsById(id);
+            }
+        });
+
+        document.getElementById('scatterNarrative').innerHTML = narrativeForScatter(subset, f);
+    }
+
+    function drawLine(subset, f) {
+        // avg price by year for top models
+        const counts = {}; subset.forEach(d => counts[d.model] = (counts[d.model] || 0) + 1);
+        const topModels = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => x[0]);
+        const traces = topModels.map(m => {
+            const rows = subset.filter(d => d.model === m && !isNaN(d.year) && !isNaN(d.price));
+            const byYear = {};
+            rows.forEach(r => { byYear[r.year] = byYear[r.year] || []; byYear[r.year].push(r.price); });
+            const years = Object.keys(byYear).map(y => +y).sort((a, b) => a - b);
+            const avgs = years.map(y => byYear[y].reduce((a, b) => a + b, 0) / byYear[y].length);
+            return { x: years, y: avgs, mode: 'lines+markers', name: m, hovertemplate: 'Year: %{x}<br>Avg Price: %{y:$,.0f}<extra></extra>' };
+        });
+        const layout = { margin: { t: 20, l: 50, b: 50 } };
+        Plotly.newPlot('line', traces, layout, { responsive: true });
+        document.getElementById('lineNarrative').innerHTML = narrativeForLine(subset, f);
+    }
+
+    function drawBar(subset, f) {
+        const byFuel = {};
+        subset.forEach(d => { if (isNaN(d.price) || !d.fuelType) return; byFuel[d.fuelType] = byFuel[d.fuelType] || []; byFuel[d.fuelType].push(d.price); });
+        const labels = Object.keys(byFuel);
+        const avgs = labels.map(k => byFuel[k].reduce((a, b) => a + b, 0) / byFuel[k].length);
+        const trace = [{ x: labels, y: avgs, type: 'bar', hovertemplate: '%{x}<br>Avg Price: %{y:$,.0f}<extra></extra>' }];
+        Plotly.newPlot('bar', trace, { margin: { t: 10, b: 60 }, yaxis: { title: 'Avg Price' } }, { responsive: true });
+        document.getElementById('barNarrative').innerHTML = narrativeForBar(subset, f);
+    }
+
+    function computeCorrMatrix(subset) {
+        const cols = numericCols;
+        const mat = {};
+        cols.forEach(c => mat[c] = {});
+        for (let i = 0; i < cols.length; i++) for (let j = 0; j < cols.length; j++) {
+            const both = subset.map(d => [d[cols[i]], d[cols[j]]]).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+            if (both.length < 5) { mat[cols[i]][cols[j]] = NaN; continue; }
+            const xs = both.map(p => p[0]); const ys = both.map(p => p[1]);
+            // compute pearson
+            const n = xs.length; const mx = xs.reduce((a, b) => a + b, 0) / n; const my = ys.reduce((a, b) => a + b, 0) / n;
+            let num = 0, sx = 0, sy = 0; for (let k = 0; k < n; k++) { num += (xs[k] - mx) * (ys[k] - my); sx += Math.pow(xs[k] - mx, 2); sy += Math.pow(ys[k] - my, 2); }
+            mat[cols[i]][cols[j]] = num / Math.sqrt(sx * sy);
+        }
+        return mat;
+    }
+
+    function drawHeatmap(subset, f) {
+        const mat = computeCorrMatrix(subset);
+        const cols = Object.keys(mat);
+        const z = cols.map(i => cols.map(j => mat[i][j] || 0));
+        const trace = [{ z, x: cols, y: cols, type: 'heatmap', colorscale: 'RdBu', zmid: 0, hoverongaps: false }];
+        Plotly.newPlot('heatmap', trace, { margin: { t: 10, b: 60 } }, { responsive: true });
+        document.getElementById('heatNarrative').innerHTML = narrativeForHeat(mat);
+    }
+
+    // ------------------ Selection highlights ------------------
+    function updateHighlights() {
+        // highlight selected points on scatter by reducing opacity of others
+        const scatterDiv = document.getElementById('scatter');
+        if (!scatterDiv.data) return;
+        const selected = new Set(selectedIds);
+        const update = { marker: { opacity: [], size: [] } };
+        // For each trace, compute per-point opacity
+        const newTraces = scatterDiv.data.map((t, ti) => {
+            const newMarker = { opacity: t.x.map((_, i) => selected.size === 0 ? 0.8 : (selected.has(t.customdata ? t.customdata[i] : null) ? 1 : 0.15)), size: t.x.map(_ => 8) };
+            return { marker: newMarker };
+        });
+        Plotly.restyle('scatter', newTraces);
+    }
+
+    function showDetailsById(id) {
+        const d = data.find(x => x._id === id); if (!d) return;
+        // simple modal-like small alert
+        const msg = `Detail: Model ${d.model}, Year ${d.year}, Fuel ${d.fuelType}, Mileage ${d.mileage}, Price ${formatCurrency(d.price)}`;
+        alert(msg);
+    }
+
+    // ------------------ Orchestration ------------------
+    function renderAll() {
+        const { subset, f } = applyFilter();
+        document.getElementById('countLabel').innerText = subset.length;
+        drawScatter(subset, f);
+        drawLine(subset, f);
+        drawBar(subset, f);
+        drawHeatmap(subset, f);
+        // reset selection
+        selectedIds = new Set(); document.getElementById('selectedCount').innerText = 0;
+    }
+
+    // ------------------ Loading CSV ------------------
+    function loadFromText(text) { const parsed = Papa.parse(text, { header: true, skipEmptyLines: true }); raw = parsed.data; data = processRaw(raw); populateControls(); renderAll(); }
+    function loadFromFile(file) { Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res) => { raw = res.data; data = processRaw(raw); populateControls(); renderAll(); } }); }
+
+    async function tryFetchDefault() { try { const r = await fetch('toyota.csv'); if (!r.ok) throw new Error('File not found'); const text = await r.text(); loadFromText(text); } catch (e) { alert('Gagal load toyota.csv: ' + e.message); } }
+
+    // ------------------ Events ------------------
+    document.getElementById('fileInput').addEventListener('change', (e) => { const f = e.target.files[0]; if (f) loadFromFile(f); });
+    document.getElementById('btnLoadDefault').addEventListener('click', () => tryFetchDefault());
+    document.getElementById('btnApply').addEventListener('click', () => renderAll());
+    document.getElementById('btnReset').addEventListener('click', () => { document.getElementById('modelSelect').value = null; document.getElementById('fuelSelect').value = null; renderAll(); });
+
+    // try load default on start silently (if available)
+    tryFetchDefault();
+</script>
+</body>
+
+</html>
