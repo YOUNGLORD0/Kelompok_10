@@ -220,8 +220,8 @@ Dataset berisi **6,738 data** mobil Toyota bekas dengan 9 variabel:
 
 ## Lisensi
 
-- **Dataset**:
-- **Code**: 
+- **Dataset**: https://www.kaggle.com/datasets/mysarahmadbhat/toyota-used-car-listing
+- **Code**: https://creativecommons.org/publicdomain/zero/1.0/
 
 ## Acknowledgments
 
